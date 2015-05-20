@@ -5,10 +5,10 @@
     Prof: Silvana Roseto
 
     Alunos: Felipe Faria    109062131
-            Felipe Souza
+            Felipe Sousa    111306795
 
     Compile: gcc -g -Wall -fopenmp -o trabalho_prog_par trabalho_prog_par.c
-    Run: ./trabalho_prog_par.c < arvor_1.in
+    Run: ./trabalho_prog_par.c
 */
 #include <stdio.h>
 #include <stdlib.h>
@@ -16,7 +16,7 @@
 #include <omp.h>
 #include "timer.h"
 #define lerEntradas 0
-#define PRINTMATRIZ 0
+#define PRINTMATRIZ 1
 #define PRINTRESULTS 1
 #define PRINTCAMINHO 0
 #define nThreads 2
@@ -37,36 +37,47 @@ typedef struct Caminho
 int** InitMatriz(int n);
 int** CreateMatriz(int n);
 void PrintMatriz(int** matriz,int tamanhoMatriz);
+
 Caminho InitCaminho();
 Caminho CopiaCaminho(Caminho caminho);
+void printCaminho(Caminho caminho);
+
 void visita(Caminho caminho);
 void buscaParalela(Caminho caminho);
 void visitaParalela(Caminho caminho);
-void printCaminho(Caminho caminho);
 
 int **custo;
-int numCid, raiz;
+int numCid, raiz, seed=0;
 Caminho melhorCaminhoSequencial, melhorCaminhoParalelo;
 
-int main()
+int main(int argc, char* argv[])
 {
-    double startTime, endTime, sequentialTime,paralelTime;
+    double startTime, endTime, tempoSequencial,tempoParalelo;
 	int i, j;
+	double eficiencia,speedup;
 	Caminho inicial;
-
-	//pega quantidade de cidade e cidade de origem
-	scanf("%d", &numCid);
+    if(argc==1){
+        //pega quantidade de cidade e cidade de origem
+        scanf("%d", &numCid);
+        scanf("%d", &raiz);
+	}else{
+        numCid = strtol(argv[1], NULL, 10);
+        raiz = strtol(argv[2], NULL, 10);
+        if(argc>2)
+            seed = strtol(argv[3], NULL, 10);
+        else
+            seed = time(NULL);
+	}
     if(lerEntradas){
-	//determinando as arestas
-	custo = InitMatriz(numCid);
-	for(i = 0; i < numCid; i++)
-		for(j = 0; j < numCid; j++)
-			scanf("%d", &custo[i][j]);
+        //determinando as arestas
+        custo = InitMatriz(numCid);
+        for(i = 0; i < numCid; i++)
+            for(j = 0; j < numCid; j++)
+                scanf("%d", &custo[i][j]);
     }else{
         custo = CreateMatriz(numCid);
     }
     PrintMatriz(custo,numCid);
-	scanf("%d", &raiz);
 
 	inicial = InitCaminho();
 
@@ -81,26 +92,35 @@ int main()
     inicial.visitados[raiz] = 1;
 
     GET_TIME(startTime);
-    visita(inicial);
-    GET_TIME(endTime);
-    sequentialTime = endTime - startTime;
 
-    GET_TIME(startTime);
     # pragma omp parallel num_threads(nThreads)
     visitaParalela(inicial);
 
     GET_TIME(endTime);
-    paralelTime = endTime - startTime;
+    tempoParalelo = endTime - startTime;
+
+    GET_TIME(startTime);
+    visita(inicial);
+    GET_TIME(endTime);
+    tempoSequencial = endTime - startTime;
+
 
     if(PRINTRESULTS){
+        printf("##Sequencial\n");
         printf("Caminho de menor custo:");
         for(i = 0; i <= numCid; i++) printf(" %d", melhorCaminhoSequencial.ordem[i]);
         printf("\nMenor custo: %d\n", melhorCaminhoSequencial.distPer);
-        printf("Tempo Sequencial: %.6f\n", sequentialTime);
+        printf("Tempo: %.6f\n", tempoSequencial);
+        printf("##Paralelo: Threads=%d\n",nThreads);
         printf("Caminho de menor custo:");
         for(i = 0; i <= numCid; i++) printf(" %d", melhorCaminhoParalelo.ordem[i]);
         printf("\nMenor custo: %d\n", melhorCaminhoParalelo.distPer);
-        printf("Tempo Sequencial: %.6f\n", paralelTime);
+        printf("Tempo: %.6f\n", tempoParalelo);
+        printf("##Avaliação\n");
+        speedup = tempoSequencial/tempoParalelo;
+        printf("Speedup = %f\n",speedup);
+        eficiencia = speedup/nThreads;
+        printf("Eficiencia = %f\n",eficiencia);
     }
 
 	return 0;
@@ -121,7 +141,7 @@ int** InitMatriz(int n)
 
 int** CreateMatriz(int n)
 {
-    srand(0);
+    srand(seed);
     int i,j,value;
     int** matriz = InitMatriz(n);
     for(i=0;i<n;i++)
@@ -198,7 +218,6 @@ void buscaParalela(Caminho caminho)
         if(custo[anterior][i] >= INF) continue;
         novaDist = custo[anterior][i]+caminho.distPer;
 
-        #pragma omp critical
         isWorst=novaDist>melhorCaminhoParalelo.distPer;
         if(isWorst) continue;
 
@@ -221,14 +240,16 @@ void visitaParalela(Caminho caminho)
 
     if (caminho.cidPer == numCid && custo[anterior][raiz] < INF){
         #pragma omp critical
-        if(melhorCaminhoParalelo.distPer > caminho.distPer+custo[anterior][raiz])
         {
-            melhorCaminhoParalelo= CopiaCaminho(caminho);
-            melhorCaminhoParalelo.cidPer++;
-            melhorCaminhoParalelo.ordem[melhorCaminhoParalelo.cidPer-1] = raiz;
-            melhorCaminhoParalelo.visitados[raiz]=2;
-            melhorCaminhoParalelo.distPer+=custo[anterior][raiz];
+            if(melhorCaminhoParalelo.distPer > caminho.distPer+custo[anterior][raiz])
+            {
+                melhorCaminhoParalelo= CopiaCaminho(caminho);
+                melhorCaminhoParalelo.cidPer++;
+                melhorCaminhoParalelo.ordem[melhorCaminhoParalelo.cidPer-1] = raiz;
+                melhorCaminhoParalelo.visitados[raiz]=2;
+                melhorCaminhoParalelo.distPer+=custo[anterior][raiz];
 
+            }
         }
     }
 
@@ -237,7 +258,7 @@ void visitaParalela(Caminho caminho)
         if(caminho.visitados[i] > 0) continue;
         if(custo[anterior][i] >= INF) continue;
         novaDist = custo[anterior][i]+caminho.distPer;
-        //#pragma omp critical
+        #pragma omp critical
         isWorst=novaDist>melhorCaminhoParalelo.distPer;
         if(isWorst) continue;
         Caminho proximo = CopiaCaminho(caminho);

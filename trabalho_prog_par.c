@@ -1,5 +1,20 @@
+/*
+    Trabalho de Programação Paralela
+    Ciencia da Computação - UFRJ
+
+    Prof: Silvana Roseto
+
+    Alunos: Felipe Faria    109062131
+            Felipe Souza
+
+    Compile: gcc -o trabalho_prog_par trabalho_prog_par.c
+    Run: ./trabalho_prog_par.c < arvor_1.in
+*/
 #include <stdio.h>
 #include <stdlib.h>
+#include <time.h>
+#include "timer.h"
+#define lerEntradas 0
 #define INF 9999
 #define true 1
 #define false 0
@@ -15,6 +30,7 @@ typedef struct Caminho
 } Caminho;
 
 int** InitMatriz(int n);
+int** CreateMatriz(int n);
 void PrintMatriz(int** matriz,int tamanhoMatriz);
 Caminho InitCaminho();
 Caminho CopiaCaminho(Caminho caminho);
@@ -27,18 +43,22 @@ Caminho melhorCaminho;
 
 int main()
 {
+    double startTime, endTime, elapsedTime;
 	int i, j;
 	Caminho inicial;
 
 	//pega quantidade de cidade e cidade de origem
 	scanf("%d", &numCid);
-
+    if(lerEntradas){
 	//determinando as arestas
 	custo = InitMatriz(numCid);
 	for(i = 0; i < numCid; i++)
 		for(j = 0; j < numCid; j++)
 			scanf("%d", &custo[i][j]);
-
+    }else{
+        custo = CreateMatriz(numCid);
+    }
+    PrintMatriz(custo,numCid);
 	scanf("%d", &raiz);
 
 	inicial = InitCaminho();
@@ -48,11 +68,15 @@ int main()
     inicial.cidPer = 1;
     inicial.ordem[0] = raiz;
     inicial.visitados[raiz] = 1;
+    GET_TIME(startTime);
     visita(inicial);
+    GET_TIME(endTime);
+    elapsedTime = endTime - startTime;
 
     printf("Caminho de menor custo:");
     for(i = 0; i <= numCid; i++) printf(" %d", melhorCaminho.ordem[i]);
     printf("\nMenor custo: %d\n", melhorCaminho.distPer);
+    printf("Tempo Sequencial: %.6f\n", elapsedTime);
 
 	return 0;
 }
@@ -66,6 +90,23 @@ int** InitMatriz(int n)
     {
     	if (( matriz[i] = malloc( n*sizeof( int* ) )) == NULL )
         {printf("Nao alocou!\n");}
+    }
+    return matriz;
+}
+
+int** CreateMatriz(int n)
+{
+    srand(0);
+    int i,j,value;
+    int** matriz = InitMatriz(n);
+    for(i=0;i<n;i++)
+    {
+        for(j=0;j<n;j++){
+            if(i==j){ matriz[i][j]=INF; continue;}
+            value = rand() % 100;
+            if(value>90) { matriz[i][j]=INF; continue;}
+            matriz[i][j] = value;
+        }
     }
     return matriz;
 }

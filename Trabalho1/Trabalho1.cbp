@@ -11,6 +11,7 @@
 				<Option object_output="obj/Debug/" />
 				<Option type="1" />
 				<Option compiler="gcc" />
+				<Option parameters="-P -S -R -l c" />
 				<Compiler>
 					<Add option="-g" />
 				</Compiler>
@@ -31,6 +32,13 @@
 		<Compiler>
 			<Add option="-Wall" />
 		</Compiler>
+		<Unit filename="T1ProgParFelipe.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="arvore_1.in" />
+		<Unit filename="arvore_2.in" />
+		<Unit filename="cidades_17.in" />
+		<Unit filename="timer.h" />
 		<Extensions>
 			<code_completion />
 			<debugger />

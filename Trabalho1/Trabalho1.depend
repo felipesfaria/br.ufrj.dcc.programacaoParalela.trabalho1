@@ -1,0 +1,13 @@
+# depslib dependency file v1.0
+1432265678 source:/home/felipe/Documents/ProgramacaoParalela/Trabalho1/br.ufrj.dcc.programacaoParalela.trabalho1/Trabalho1/T1ProgParFelipe.c
+	<stdio.h>
+	<stdlib.h>
+	<time.h>
+	<omp.h>
+	<unistd.h>
+	<ctype.h>
+	"timer.h"
+
+1427664652 /home/felipe/Documents/ProgramacaoParalela/Trabalho1/br.ufrj.dcc.programacaoParalela.trabalho1/Trabalho1/timer.h
+	<sys/time.h>
+

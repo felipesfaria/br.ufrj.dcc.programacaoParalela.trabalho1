@@ -56,6 +56,7 @@ int PRINT_MATRIZ=0;
 int PRINT_RESULTADOS=0;
 int PRINT_CAMINHO=0;
 int PRINT_LINHA = 0;
+int PRINT_EXECUCAO = 0;
 int nThreads=2;
 int nCidades = 4;
 int origem = 0;
@@ -66,13 +67,13 @@ int** NovaMatriz(int n);
 int** GerarMatriz(int n);
 void PrintMatriz(int** matriz,int tamanhoMatriz);
 
-Caminho NovoCaminho();
-Caminho CopiaCaminho(Caminho caminho);
-void PrintCaminho(Caminho caminho);
+Caminho* NovoCaminho();
+Caminho* CopiaCaminho(Caminho *caminho);
+void PrintCaminho(Caminho *caminho);
 
-void visita(Caminho caminho);
-void buscaParalela(Caminho caminho);
-void visitaParalela(Caminho caminho);
+void visita(Caminho *caminho);
+void buscaParalela(Caminho *caminho);
+void visitaParalela(Caminho *caminho);
 
 void ConfiguraOpcoes(int argc, char* argv[]);
 void PrintOpcoes();
@@ -81,7 +82,7 @@ void PrintLinha();
 
 //Global
 int **custo;
-Caminho melhorCaminhoSequencial, melhorCaminhoParalelo;
+Caminho *melhorCaminhoSequencial, *melhorCaminhoParalelo;
 double  tempoSequencial=0,tempoParalelo=0;
 int countVisitasSequenciais,
     countVisitasParalelas;
@@ -90,7 +91,7 @@ int main(int argc, char* argv[])
 {
     double startTime, endTime;
 	int i, j;
-	Caminho inicial;
+	Caminho *inicial;
 
 	ConfiguraOpcoes(argc,argv);
 
@@ -108,14 +109,14 @@ int main(int argc, char* argv[])
 	inicial = NovoCaminho();
 
 	melhorCaminhoParalelo= NovoCaminho();
-    melhorCaminhoParalelo.distanciaPercorrida = INF;
+    melhorCaminhoParalelo->distanciaPercorrida = INF;
 
 	melhorCaminhoSequencial = NovoCaminho();
-    melhorCaminhoSequencial.distanciaPercorrida = INF;
+    melhorCaminhoSequencial->distanciaPercorrida = INF;
 
-    inicial.cidPer = 1;
-    inicial.ordem[0] = origem;
-    inicial.visitados[origem] = 1;
+    inicial->cidPer = 1;
+    inicial->ordem[0] = origem;
+    inicial->visitados[origem] = 1;
 
     if(EXECUTAR_SEQUENCIAL){
         GET_TIME(startTime);
@@ -148,25 +149,35 @@ void PrintResultados(){
     if(EXECUTAR_SEQUENCIAL){
         printf("##Sequencial\n");
         printf("Caminho de menor custo:");
-        for(i = 0; i <= nCidades; i++) printf(" %d", melhorCaminhoSequencial.ordem[i]);
-        printf("\nMenor custo: %d\n", melhorCaminhoSequencial.distanciaPercorrida);
+        for(i = 0; i <= nCidades; i++) printf(" %d", melhorCaminhoSequencial->ordem[i]);
+        printf("\nMenor custo: %d\n", melhorCaminhoSequencial->distanciaPercorrida);
         printf("Tempo: %.6f\n", tempoSequencial);
-        printf("nVisitas: %%df\n", countVisitasSequenciais);
+        printf("nVisitas: %d\n", countVisitasSequenciais);
+        printf("\n");
     }
     if(EXECUTAR_PARALELO){
         printf("##Paralelo: Threads=%d\n",nThreads);
         printf("Caminho de menor custo:");
-        for(i = 0; i <= nCidades; i++) printf(" %d", melhorCaminhoParalelo.ordem[i]);
-        printf("\nMenor custo: %d\n", melhorCaminhoParalelo.distanciaPercorrida);
+        for(i = 0; i <= nCidades; i++) printf(" %d", melhorCaminhoParalelo->ordem[i]);
+        printf("\nMenor custo: %d\n", melhorCaminhoParalelo->distanciaPercorrida);
         printf("Tempo: %.6f\n", tempoParalelo);
-        printf("nVisitas: %%df\n", countVisitasParalelas);
+        printf("nVisitas: %d\n", countVisitasParalelas);
+        printf("\n");
     }
     if(EXECUTAR_PARALELO&&EXECUTAR_SEQUENCIAL){
         printf("##Avaliação\n");
+        bool correto = true;
+        for(i = 0; i <= nCidades; i++){
+            if(melhorCaminhoSequencial->ordem[i]!=melhorCaminhoParalelo->ordem[i])
+                correto=false;
+        }
+        if(correto) printf("Correto: Melhor caminho igual\n");
+        else printf("Errado!: Melhor caminho Diferente\n");
         speedup = tempoSequencial/tempoParalelo;
         printf("Speedup = %f\n",speedup);
         eficiencia = speedup/nThreads;
         printf("Eficiencia = %f\n",eficiencia);
+        printf("\n");
     }
 }
 
@@ -175,16 +186,16 @@ void PrintLinha(char* argv[]){
     int i;
     if(EXECUTAR_PARALELO)
     {
-        printf("Paralelo\t%d\t%d\t%.6f\t%d\t",nCidades,nThreads,tempoParalelo,melhorCaminhoParalelo.distanciaPercorrida);
+        printf("Paralelo\t%d\t%d\t%.6f\t%d\t",nCidades,nThreads,tempoParalelo,melhorCaminhoParalelo->distanciaPercorrida);
         for(i = 0; i <= nCidades; i++)
-        printf(" %d", melhorCaminhoParalelo.ordem[i]);
+        printf(" %d", melhorCaminhoParalelo->ordem[i]);
         printf("\n");
     }
     if(EXECUTAR_SEQUENCIAL)
     {
-        printf("Sequencial\t%d\t%d\t%.6f\t%d\t",nCidades,nThreads,tempoSequencial,melhorCaminhoSequencial.distanciaPercorrida);
+        printf("Sequencial\t%d\t%d\t%.6f\t%d\t",nCidades,nThreads,tempoSequencial,melhorCaminhoSequencial->distanciaPercorrida);
         for(i = 0; i <= nCidades; i++)
-        printf(" %d", melhorCaminhoSequencial.ordem[i]);
+        printf(" %d", melhorCaminhoSequencial->ordem[i]);
         printf("\n");
     }
 
@@ -258,6 +269,7 @@ void PrintOpcoes(){
 
 int** NovaMatriz(int n)
 {
+    if(PRINT_EXECUCAO) printf("NovaMatriz(%d)\n",n);
     int i;
     int** matriz;
     if ((matriz = malloc(n * sizeof( int* ))) == NULL) printf("Nao alocou!\n");
@@ -271,6 +283,7 @@ int** NovaMatriz(int n)
 
 int** GerarMatriz(int n)
 {
+    if(PRINT_EXECUCAO) printf("GerarMatriz(%d)\n",n);
     srand(semente);
     int i,j,value;
     int** matriz = NovaMatriz(n);
@@ -288,6 +301,7 @@ int** GerarMatriz(int n)
 
 void PrintMatriz(int** matriz,int tamanhoMatriz){
     if(!PRINT_MATRIZ) return;
+    if(PRINT_EXECUCAO) printf("PrintMatriz(%d,%d)\n",matriz,tamanhoMatriz);
     printf("a\n");
     int i,j;
     for(i=0;i<tamanhoMatriz;i++){
@@ -298,42 +312,45 @@ void PrintMatriz(int** matriz,int tamanhoMatriz){
     }
 }
 
-void visita(Caminho caminho)
+void visita(Caminho *caminho)
 {
+    if(PRINT_EXECUCAO) printf("visita(%d)\n",caminho);
     countVisitasSequenciais++;
-    int anterior = caminho.ordem[caminho.cidPer-1];
+    int anterior = caminho->ordem[caminho->cidPer-1];
     int i, novaDist;
 
     PrintCaminho(caminho);
 
-    if (caminho.cidPer == nCidades && custo[anterior][origem] < INF)
-        if(melhorCaminhoSequencial.distanciaPercorrida > caminho.distanciaPercorrida+custo[anterior][origem])
+    if (caminho->cidPer == nCidades && custo[anterior][origem] < INF)
+        if(melhorCaminhoSequencial->distanciaPercorrida > caminho->distanciaPercorrida+custo[anterior][origem])
         {
             melhorCaminhoSequencial = CopiaCaminho(caminho);
-            melhorCaminhoSequencial.cidPer++;
-            melhorCaminhoSequencial.ordem[melhorCaminhoSequencial.cidPer-1] = origem;
-            melhorCaminhoSequencial.visitados[origem]=2;
-            melhorCaminhoSequencial.distanciaPercorrida+=custo[anterior][origem];
+            melhorCaminhoSequencial->cidPer++;
+            melhorCaminhoSequencial->ordem[melhorCaminhoSequencial->cidPer-1] = origem;
+            melhorCaminhoSequencial->visitados[origem]=2;
+            melhorCaminhoSequencial->distanciaPercorrida+=custo[anterior][origem];
         }
 
     for(i = 0; i < nCidades; i++)
     {
-        if(caminho.visitados[i] > 0) continue;
+        if(caminho->visitados[i] > 0) continue;
         if(custo[anterior][i] >= INF) continue;
-        novaDist = custo[anterior][i]+caminho.distanciaPercorrida;
-        if(novaDist>melhorCaminhoSequencial.distanciaPercorrida) continue;
-        Caminho proximo = CopiaCaminho(caminho);
-        proximo.cidPer++;
-        proximo.ordem[proximo.cidPer-1]=i;
-        proximo.visitados[i]=1;
-        proximo.distanciaPercorrida=novaDist;
+        novaDist = custo[anterior][i]+caminho->distanciaPercorrida;
+        if(novaDist>melhorCaminhoSequencial->distanciaPercorrida) continue;
+        Caminho *proximo = CopiaCaminho(caminho);
+        proximo->cidPer++;
+        proximo->ordem[proximo->cidPer-1]=i;
+        proximo->visitados[i]=1;
+        proximo->distanciaPercorrida=novaDist;
         visita(proximo);
+        free(proximo);
     }
 }
 
-void buscaParalela(Caminho caminho)
+void buscaParalela(Caminho *caminho)
 {
-    int anterior = caminho.ordem[caminho.cidPer-1];
+    if(PRINT_EXECUCAO) printf("buscaParalela(%d)\n",caminho);
+    int anterior = caminho->ordem[caminho->cidPer-1];
     int i, novaDist,myRank, myStart, myFinish;
     bool isWorst;
     myRank = omp_get_thread_num();
@@ -346,44 +363,47 @@ void buscaParalela(Caminho caminho)
 
     for(i = myStart; i < myFinish; i++)
     {
-        if(caminho.visitados[i] > 0) continue;
+        if(caminho->visitados[i] > 0) continue;
         if(custo[anterior][i] >= INF) continue;
-        novaDist = custo[anterior][i]+caminho.distanciaPercorrida;
+        novaDist = custo[anterior][i]+caminho->distanciaPercorrida;
 
-        isWorst=novaDist>melhorCaminhoParalelo.distanciaPercorrida;
+        isWorst=novaDist>melhorCaminhoParalelo->distanciaPercorrida;
         if(isWorst) continue;
 
-        Caminho proximo = CopiaCaminho(caminho);
-        proximo.cidPer++;
-        proximo.ordem[proximo.cidPer-1]=i;
-        proximo.visitados[i]=1;
-        proximo.distanciaPercorrida=novaDist;
+        Caminho *proximo = CopiaCaminho(caminho);
+        proximo->cidPer++;
+        proximo->ordem[proximo->cidPer-1]=i;
+        proximo->visitados[i]=1;
+        proximo->distanciaPercorrida=novaDist;
         visitaParalela(proximo);
+        free(proximo);
     }
 }
 
-void visitaParalela(Caminho caminho)
+void visitaParalela(Caminho *caminho)
 {
+    int myRank = omp_get_thread_num();
+    if(PRINT_EXECUCAO) printf("[%d] visitaParalela(%d)\n",myRank,caminho);
 
     #pragma omp critical
     countVisitasParalelas++;
 
-    int anterior = caminho.ordem[caminho.cidPer-1];
+    int anterior = caminho->ordem[caminho->cidPer-1];
     int i, novaDist;
     bool isWorst;
 
     PrintCaminho(caminho);
 
-    if (caminho.cidPer == nCidades && custo[anterior][origem] < INF){
+    if (caminho->cidPer == nCidades && custo[anterior][origem] < INF){
         #pragma omp critical
         {
-            if(melhorCaminhoParalelo.distanciaPercorrida > caminho.distanciaPercorrida+custo[anterior][origem])
+            if(melhorCaminhoParalelo->distanciaPercorrida > caminho->distanciaPercorrida+custo[anterior][origem])
             {
-                melhorCaminhoParalelo= CopiaCaminho(caminho);
-                melhorCaminhoParalelo.cidPer++;
-                melhorCaminhoParalelo.ordem[melhorCaminhoParalelo.cidPer-1] = origem;
-                melhorCaminhoParalelo.visitados[origem]=2;
-                melhorCaminhoParalelo.distanciaPercorrida+=custo[anterior][origem];
+                melhorCaminhoParalelo = CopiaCaminho(caminho);
+                melhorCaminhoParalelo->cidPer++;
+                melhorCaminhoParalelo->ordem[melhorCaminhoParalelo->cidPer-1] = origem;
+                melhorCaminhoParalelo->visitados[origem]=2;
+                melhorCaminhoParalelo->distanciaPercorrida+=custo[anterior][origem];
 
             }
         }
@@ -391,70 +411,75 @@ void visitaParalela(Caminho caminho)
 
     for(i = 0; i < nCidades; i++)
     {
-        if(caminho.visitados[i] > 0) continue;
+        if(caminho->visitados[i] > 0) continue;
         if(custo[anterior][i] >= INF) continue;
-        novaDist = custo[anterior][i]+caminho.distanciaPercorrida;
+        novaDist = custo[anterior][i]+caminho->distanciaPercorrida;
         #pragma omp critical
-        isWorst=novaDist>melhorCaminhoParalelo.distanciaPercorrida;
+        isWorst=novaDist>melhorCaminhoParalelo->distanciaPercorrida;
         if(isWorst) continue;
-        Caminho proximo = CopiaCaminho(caminho);
-        proximo.cidPer++;
-        proximo.ordem[proximo.cidPer-1]=i;
-        proximo.visitados[i]=1;
-        proximo.distanciaPercorrida=novaDist;
+        Caminho *proximo = CopiaCaminho(caminho);
+        proximo->cidPer++;
+        proximo->ordem[proximo->cidPer-1]=i;
+        proximo->visitados[i]=1;
+        proximo->distanciaPercorrida=novaDist;
         visitaParalela(proximo);
+        free(proximo);
     }
 }
 
-void PrintCaminho(Caminho caminho)
+void PrintCaminho(Caminho *caminho)
 {
     if(!PRINT_CAMINHO) return;
     int i;
 
-    printf("\nCaminho:\nDistancia: %d\nNumero de Cidades: %d\nOrdem:", caminho.distanciaPercorrida, caminho.cidPer);
-    for(i = 0; i < caminho.cidPer; i++) printf(" %d", caminho.ordem[i]);
+    printf("\nCaminho:\nDistancia: %d\nNumero de Cidades: %d\nOrdem:", caminho->distanciaPercorrida, caminho->cidPer);
+    for(i = 0; i < caminho->cidPer; i++) printf(" %d", caminho->ordem[i]);
     printf("\nVisitados:");
-    for(i = 0; i < nCidades; i++) printf(" %d", caminho.visitados[i]);
+    for(i = 0; i < nCidades; i++) printf(" %d", caminho->visitados[i]);
     printf("\n");
 }
 
-Caminho NovoCaminho()
+Caminho* NovoCaminho()
 {
     int i;
 
-    Caminho caminho;
-    caminho.ordem = (int*) malloc((nCidades+1) * sizeof(int));
-    caminho.visitados = (int*) malloc(nCidades * sizeof(int));
+    Caminho *caminho = (Caminho *)malloc(sizeof(Caminho));
+    caminho->ordem = (int*) malloc((nCidades+1) * sizeof(int));
+    caminho->visitados = (int*) malloc(nCidades * sizeof(int));
 
     for(i = 0; i < nCidades; i++)
     {
-        caminho.visitados[i] = 0;
-        caminho.ordem[i] = 0;
+        caminho->visitados[i] = 0;
+        caminho->ordem[i] = 0;
     }
-    caminho.ordem[i+1] = 0;
+    caminho->ordem[i+1] = 0;
 
-    caminho.cidPer = 0;
-    caminho.distanciaPercorrida = 0;
+    caminho->cidPer = 0;
+    caminho->distanciaPercorrida = 0;
 
     return caminho;
 }
 
-Caminho CopiaCaminho(Caminho caminho)
+Caminho* CopiaCaminho(Caminho *caminho)
 {
     int i;
-    Caminho caminhoNovo;
+    Caminho *caminhoNovo = (Caminho *) malloc(sizeof(Caminho));
 
-    caminhoNovo.ordem = (int*) malloc((nCidades+1) * sizeof(int));
-    caminhoNovo.visitados = (int*) malloc(nCidades * sizeof(int));
+    caminhoNovo->ordem = (int*) malloc((nCidades+1) * sizeof(int));
+    caminhoNovo->visitados = (int*) malloc(nCidades * sizeof(int));
 
-    caminhoNovo.cidPer = caminho.cidPer;
-    caminhoNovo.distanciaPercorrida = caminho.distanciaPercorrida;
+    caminhoNovo->cidPer = caminho->cidPer;
+    caminhoNovo->distanciaPercorrida = caminho->distanciaPercorrida;
 
     for(i = 0; i < nCidades; i++)
     {
-        caminhoNovo.ordem[i] = caminho.ordem[i];
-        caminhoNovo.visitados[i] = caminho.visitados[i];
+        caminhoNovo->ordem[i] = caminho->ordem[i];
+        caminhoNovo->visitados[i] = caminho->visitados[i];
     }
 
     return caminhoNovo;
+}
+
+void liberaCaminho(Caminho *caminho){
+    free(caminho);
 }

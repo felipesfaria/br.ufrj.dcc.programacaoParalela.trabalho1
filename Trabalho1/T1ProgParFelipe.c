@@ -15,11 +15,12 @@
     -R	Escrever Resultados
     -M	Escrever Matriz
     -C	Escrever Caminho Passo a Passo
+    -T  Escrever Linha de Tabela
     -L	Entrada manual/externa: nCidades Raiz Custos...
     -l c    Ler # cidades
     -c #	Definir numero de Cidades (default é 4)
     -t #	Definir numero de threads (default é 2)
-    -0 #	Definir cidade de origem (default é 0)
+    -o #	Definir cidade de origem (default é 0)
     -s #	Definir semente para gerar matriz (default é aleatorio)
     Execucoes:
     ./T1ProgParFelipe -P -S -R -c 14
@@ -87,7 +88,9 @@ int **custo;
 Caminho *melhorCaminhoSequencial, *melhorCaminhoParalelo;
 double  tempoSequencial=0,tempoParalelo=0;
 int countVisitasSequenciais,
-    countVisitasParalelas;
+    countVisitasParalelas,
+    countThread0,
+    countThread1;
 
 int main(int argc, char* argv[])
 {
@@ -99,6 +102,8 @@ int main(int argc, char* argv[])
 
     if(LER_ENTRADAS){
         //determinando as arestas
+        scanf("%d", &nCidades);
+        scanf("%d", &origem);
         custo = NovaMatriz(nCidades);
         for(i = 0; i < nCidades; i++)
             for(j = 0; j < nCidades; j++)
@@ -165,6 +170,9 @@ void PrintResultados(){
         printf("\nMenor custo: %d\n", melhorCaminhoParalelo->distanciaPercorrida);
         printf("Tempo: %.6f\n", tempoParalelo);
         printf("nVisitas: %d\n", countVisitasParalelas);
+        printf("nVisitas[0]=%d\n",countThread0);
+        printf("nVisitas[1]=%d\n",countThread1);
+        printf("nVisitas[soma]: %d\n", (countThread0+countThread1));
         printf("\n");
     }
     if(EXECUTAR_PARALELO&&EXECUTAR_SEQUENCIAL){
@@ -187,19 +195,20 @@ void PrintResultados(){
 void PrintLinha(char* argv[]){
     if(!PRINT_LINHA) return;
     int i;
+    bool correto = true;
+    if(EXECUTAR_PARALELO&&EXECUTAR_SEQUENCIAL){
+        for(i = 0; i <= nCidades; i++){
+            if(melhorCaminhoSequencial->ordem[i]!=melhorCaminhoParalelo->ordem[i])
+                correto=false;
+        }
+    }
     if(EXECUTAR_PARALELO)
     {
-        printf("Paralelo\t%d\t%d\t%.6f\t%d\t",nCidades,thread_count,tempoParalelo,melhorCaminhoParalelo->distanciaPercorrida);
-        for(i = 0; i <= nCidades; i++)
-        printf(" %d", melhorCaminhoParalelo->ordem[i]);
-        printf("\n");
+        printf("Paralelo\t%d\t%d\t%.6f\t%d\t%d\t%d\n",nCidades,thread_count,tempoParalelo,melhorCaminhoParalelo->distanciaPercorrida,correto,(countThread0+countThread1));
     }
     if(EXECUTAR_SEQUENCIAL)
     {
-        printf("Sequencial\t%d\t%d\t%.6f\t%d\t",nCidades,thread_count,tempoSequencial,melhorCaminhoSequencial->distanciaPercorrida);
-        for(i = 0; i <= nCidades; i++)
-        printf(" %d", melhorCaminhoSequencial->ordem[i]);
-        printf("\n");
+        printf("Sequencial\t%d\t%d\t%.6f\t%d\t%d\t%d\n",nCidades,thread_count,tempoSequencial,melhorCaminhoSequencial->distanciaPercorrida,correto,(countVisitasSequenciais));
     }
 
 
@@ -269,6 +278,7 @@ void PrintOpcoes(){
     printf("-S\tExecutar em Sequencial\n");
     printf("-R\tEscrever Resultados\n");
     printf("-M\tEscrever Matriz\n");
+    printf("-T\tEscrever Linha de Tabela\n");
     printf("-C\tEscrever Caminho Passo a Passo\n");
     printf("-L\tEntrada manual/externa: nCidades Raiz Custos...\n");
     printf("-c #\tDefinir numero de Cidades (default é 4)\n");
@@ -387,9 +397,11 @@ void BuscaParalela(Caminho *caminho)
 
         Caminho *proximo = CopiaCaminho(caminho);
         proximo->cidPer++;
+        //#  pragma omp parallel
         proximo->ordem[proximo->cidPer-1]=i;
         proximo->visitados[i]=1;
         proximo->distanciaPercorrida=novaDist;
+        //#pragma omp parallel
         visitaParalela(proximo);
         free(proximo);
     }
@@ -400,8 +412,8 @@ void visitaParalela(Caminho *caminho)
     int myRank = omp_get_thread_num();
     if(PRINT_EXECUCAO) printf("[%d] visitaParalela(%d)\n",myRank,caminho);
 
-    #pragma omp critical
-    countVisitasParalelas++;
+    if(myRank==0) countThread0++;
+    else countThread1++;
 
     int anterior = caminho->ordem[caminho->cidPer-1];
     int i, novaDist;
@@ -428,15 +440,15 @@ void visitaParalela(Caminho *caminho)
         if(caminho->visitados[i] > 0) continue;
         if(custo[anterior][i] >= INF) continue;
         novaDist = custo[anterior][i]+caminho->distanciaPercorrida;
-        #pragma omp critical
-        isWorst=novaDist>melhorCaminhoParalelo->distanciaPercorrida;
+        //#pragma omp critical
+        {isWorst=novaDist>melhorCaminhoParalelo->distanciaPercorrida;}
         if(isWorst) continue;
         Caminho *proximo = CopiaCaminho(caminho);
         proximo->cidPer++;
         proximo->ordem[proximo->cidPer-1]=i;
         proximo->visitados[i]=1;
         proximo->distanciaPercorrida=novaDist;
-        #  pragma omp parallel
+
         visitaParalela(proximo);
         free(proximo);
     }
@@ -493,8 +505,4 @@ Caminho* CopiaCaminho(Caminho *caminho)
     }
 
     return caminhoNovo;
-}
-
-void liberaCaminho(Caminho *caminho){
-    free(caminho);
 }
